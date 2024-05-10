@@ -15,7 +15,7 @@ airline_code = "AC"
 
 # Does the table exist?
 def test_tableExists():
-  assert tableExists(table_name, db_name) is True
+  assert tableExists(db_name, table_name) is True
 
 
 # Did the checks run?
