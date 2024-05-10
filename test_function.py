@@ -17,7 +17,8 @@ airline_code = "AC"
 
 # Does the table exist?
 def test_tableExists():
-  assert spark.catalog.tableExists(table_name, db_name) is True
+  assert tableExists(table_name, db_name) is True
+
 
 # Did the checks run?
 def test_quality_check():
