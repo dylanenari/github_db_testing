@@ -1,6 +1,4 @@
-import pytest
-import pyspark
-from dq_function import *
+from code.dq_function import *
 from pyspark.sql import SparkSession
 
 # Initialise Spark

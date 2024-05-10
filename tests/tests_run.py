@@ -21,8 +21,6 @@ df = spark.sql("SELECT * FROM ac_stg_green.raw_document")
 
 # COMMAND ----------
 
-from dq_function import tableExists
-
 # COMMAND ----------
 
 spark.catalog.tableExists("raw_document", "ac_stg_green")
