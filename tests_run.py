@@ -17,19 +17,4 @@ assert retcode == 0, "The pytest invocation failed. See the log for details."
 
 # COMMAND ----------
 
-df = spark.sql("SELECT * FROM ac_stg_green.raw_document")
-
-# COMMAND ----------
-
-# COMMAND ----------
-
-spark.catalog.tableExists("raw_document", "ac_stg_green")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Problem in test function: have called spark.catalog.tableExists twice since tableExists is already defined as function that returns spark.catalog.tableExists in function_call
-
-# COMMAND ----------
-
 
