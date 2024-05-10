@@ -22,5 +22,5 @@ def test_tableExists():
 
 # Did the checks run?
 def test_quality_check():
-    results_df = quality_check(airline_code, module, table_name, date_column)
-    assert not results_df.isEmpty()
+  results_df = quality_check(airline_code, module, table_name, date_column)
+  assert not results_df.isEmpty()
