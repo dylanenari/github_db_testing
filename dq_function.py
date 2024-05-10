@@ -15,6 +15,10 @@ def quality_check(df: DataFrame,
                   table_name: StringType(),
                   date_column: StringType(),
                   fk_identifier: StringType() = None):
+    from pyspark.sql.functions import *
+    from pyspark.sql.types import DateType
+    from pyspark.sql.types import StringType
+    from pyspark.sql.window import Window
     # ticketing
     if "source" in df.columns:
 
