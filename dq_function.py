@@ -8,6 +8,10 @@ spark = SparkSession.builder \
                     .appName('integrity-tests') \
                     .getOrCreate()
 
+# load dataframe function
+def tableExists(tableName, dbName):
+  return spark.catalog.tableExists(f"{dbName}.{tableName}")
+
 # data quality checks function
 def quality_check(df: DataFrame,
                   airline_code: StringType(),
