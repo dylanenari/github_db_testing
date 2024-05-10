@@ -9,8 +9,8 @@ spark = SparkSession.builder \
                     .getOrCreate()
 
 # load dataframe function
-def tableExists(tableName, dbName):
-  return spark.catalog.tableExists(f"{dbName}.{tableName}")
+def tableExists(table_name, db_name):
+  return spark.catalog.tableExists(f"{table_name}.{db_name}")
 
 # data quality checks function
 def quality_check(df: DataFrame,
