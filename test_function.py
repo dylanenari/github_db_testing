@@ -1,10 +1,10 @@
-from code.dq_function import *
+from dq_function import *
 from pyspark.sql import SparkSession
 
 # Initialise Spark
 spark = SparkSession.builder \
-                    .appName('integrity-tests') \
-                    .getOrCreate()
+  .appName('integrity-tests') \
+  .getOrCreate()
 
 # parameters
 table_name = "raw_document"

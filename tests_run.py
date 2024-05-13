@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %pip install pytest
+!pip install pytest
 
 # COMMAND ----------
 
