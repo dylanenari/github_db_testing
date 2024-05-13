@@ -13,6 +13,7 @@ db_name = "ac_stg_green"
 module = "ti-tables-ticketing"
 date_column = "snapshot_date"
 airline_code = "AC"
+fk_identifiers = None
 df = spark.sql(f"SELECT * FROM {db_name}.{table_name}") \
     .filter("snapshot_date_time >= '2023-01-01' and snapshot_date_time < '2023-01-08'") \
     .withColumn("snapshot_date", col("snapshot_date_time").cast(DateType()))
