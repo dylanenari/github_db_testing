@@ -1,6 +1,7 @@
-from dq_function import *
+from dq_function import tableExists, quality_check
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DateType
+from pyspark.sql.functions import col
 
 # initialise Spark
 spark = SparkSession.builder \
