@@ -1,4 +1,4 @@
-from dq_function import tableExists, quality_check
+from dq_function import *
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DateType
 from pyspark.sql.functions import col
@@ -19,22 +19,25 @@ df = spark.sql(f"SELECT * FROM {db_name}.{table_name}") \
     .filter("snapshot_date_time >= '2023-01-01' and snapshot_date_time < '2023-01-08'") \
     .withColumn("snapshot_date", col("snapshot_date_time").cast(DateType()))\
   
-results_df = quality_check(df, airline_code, module, table_name, date_column)
+checks = QualityCheck(spark, df, airline_code, module, table_name, date_column)
 
 # does the table exist?
 def test_tableExists():
   assert tableExists(db_name, table_name) is True, "Table not found in database"
 
 # did the checks run?
-def test_quality_check():
-  results_df = quality_check(df, airline_code, module, table_name, date_column)
-  assert not results_df.isEmpty(), "Data quality results table not generated succesfully"
+def test_rows_check():
+  counts_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_rows()
+  assert not counts_df.isEmpty() or counts_df == None, "Row count KPI not generated succesfuly"
 
-# do results have expected columns?
-def test_result_cols():
-  expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
-  assert results_df.columns == expected_cols, "Data quality results table missing columns"
+def test_duplicates_check():
+  dupl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_duplicates()
+  assert not dupl_df.isEmpty() or dupl_df == None, "Duplicate count KPI not generated succesfuly"
 
-def test_result_dates():
-  expected_dates = df.select(date_column).distinct()
-  assert results_df.select(date_column).distinct() == expected_dates, "Data quality results table missing dates"
+def test_completeness_check():
+  compl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_completeness()
+  assert not compl_df.isEmpty() or compl_df == None, "Completeness ratio KPI not generated succesfuly"
+
+def test_dates_check():
+  dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
+  assert not dates_df.isEmpty() or dates_df == None, "Row count KPI not generated succesfuly"
