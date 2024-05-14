@@ -131,7 +131,7 @@ class QualityCheck:
             if column != self.date_column:
                 completeness_col = column + "_non_null_count"
                 # count column / count date = completeness over window
-                df = df.withColumn(completeness_col, (count(column).over(windowSpec) / count(self.date_column).over(windowSpec)))
+                df = self.df.withColumn(completeness_col, (count(column).over(windowSpec) / count(self.date_column).over(windowSpec)))
 
         # drop duplicates
         compl_df = df.select(
