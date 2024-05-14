@@ -27,9 +27,10 @@ def test_tableExists():
 
 # did the checks run?
 def test_quality_check():
-  assert not results_df.isEmpty(), "Data quality results not generated succesfully"
+  results_df = quality_check(df, airline_code, module, table_name, date_column)
+  assert not results_df.isEmpty(), "Data quality results table not generated succesfully"
 
-# does results_df have expected columns?
-def test_results_columns():
-  expected_columns = set([date_column, "airline_code", "module", "table", "kpi", "key", "value"])
-  assert results_df.columns == expected_columns, "Data quality results incomplete"
+# do results have expected columns
+def test_result_cols():
+  expected_cols = set[date_column, "airline_code", "module", "table", "kpi", "key", "value"]
+  assert results_df.columns == expected_cols
