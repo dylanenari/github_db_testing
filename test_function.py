@@ -30,7 +30,11 @@ def test_quality_check():
   results_df = quality_check(df, airline_code, module, table_name, date_column)
   assert not results_df.isEmpty(), "Data quality results table not generated succesfully"
 
-# do results have expected columns
+# do results have expected columns?
 def test_result_cols():
   expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
   assert results_df.columns == expected_cols, "Data quality results table missing columns"
+
+def test_result_dates():
+  expected_dates = df.select(date_column).distinct()
+  assert results_df.select(date_column).distinct() == expected_dates, "Data quality results table missing dates"
