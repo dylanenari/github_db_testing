@@ -14,7 +14,7 @@ def tableExists(db_name, table_name):
 
 
 class QualityCheck:
-    def __init__(self, spark: SparkSession, df: pyspark.sql.DataFrame,
+    def __init__(self, spark: SparkSession, df: DataFrame,
                airline_code: str, module: str, table_name: str, date_column: str,
                fk_identifier: str = None):
         self.spark = spark
