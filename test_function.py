@@ -21,9 +21,9 @@ df = spark.sql(f"SELECT * FROM {db_name}.{table_name}") \
 
 # does the table exist?
 def test_tableExists():
-  assert tableExists(db_name, table_name) is True
+  assert tableExists(db_name, table_name) is True, "Table not found"
 
 # did the checks run?
 def test_quality_check():
   results_df = quality_check(df, airline_code, module, table_name, date_column)
-  assert not results_df.isEmpty()
+  assert not results_df.isEmpty(), "Checks did not run succesfully"
