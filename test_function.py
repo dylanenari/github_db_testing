@@ -32,5 +32,5 @@ def test_quality_check():
 
 # do results have expected columns
 def test_result_cols():
-  expected_cols = set[date_column, "airline_code", "module", "table", "kpi", "key", "value"]
+  expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
   assert results_df.columns == expected_cols
