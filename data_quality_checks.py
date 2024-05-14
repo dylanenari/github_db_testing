@@ -27,9 +27,11 @@ class QualityCheck:
 
     # Row count
     def count_rows(self):
-        # ticketing
+
+        # ticketing specific
         if "source" in self.df.columns:
 
+            # count by date, source and date, total and add columns
             counts_df = self.df.groupBy(self.date_column, "source").agg(count("*").alias("value")) \
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("row_count")) \
@@ -44,14 +46,13 @@ class QualityCheck:
                     .withColumn("table", lit(self.table_name)) \
                     .select(self.date_column, "key", "value", "module", "kpi", "airline_code", "table"))
         
-        # reservation
+        # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
             
+            # isolate foreign key columns
             fk_cols = [column for column in self.df.columns if self.fk_identifier in column]
 
-            ## consistency
-
-            # counts by foreign keys and total
+            # counts by date, foreign keys and date, total
             exprs = [count(c).alias(f"{c}") for c in fk_cols] + [count("*").alias("general")]
             counts_df = self.df.groupBy(self.date_column).agg(*exprs)
 
@@ -64,16 +65,14 @@ class QualityCheck:
                 .withColumn("table", lit(self.table_name))
         
         return counts_df
-
-        # Duplicate count
     
     # Uniqueness
     def count_duplicates(self):
-            
-        #ticketing
+           
+        # ticketing specific
         if "source" in self.df.columns:
-            ## uniqueness
-            # filter duplicate rows
+
+            # filter duplicate rows, count by date, source and date, total and add columns
             dupl_df = self.df.groupBy(self.df.columns).count().filter("count > 1") \
                 .groupBy(self.date_column, "source").agg(count("*").alias("value")) \
                 .withColumn("module", lit(self.module)) \
@@ -90,9 +89,10 @@ class QualityCheck:
                     .withColumn("table", lit(self.table_name)) \
                     .select(self.date_column, "key", "value", "module", "kpi", "airline_code", "table"))
         
-        # reservation
+        # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
             
+            # isolate foreign key columns
             fk_cols = [column for column in self.df.columns if self.fk_identifier in column]            
 
             # filter duplicate rows and apply count expressions
@@ -101,16 +101,15 @@ class QualityCheck:
                 .groupBy(self.date_column).agg(*exprs)
 
             # transpose and add columns
-            dupl_df = dupl_df.melt(self.date_column, [column for column in dupl_df.columns if column != self.date_column], "key",
-                                "value") \
+            dupl_df = dupl_df.melt(self.date_column, [column for column in dupl_df.columns if column != self.date_column], "key", "value") \
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("duplicate_count")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
                 .withColumn("table", lit(self.table_name))
         
-        # coupons
+        # coupons specific
         else:
-            # count by date, add columns
+            # count by date, total, add columns
             counts_df = self.df.groupBy(self.date_column).agg(count("*").alias("value")) \
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("row_count")) \
@@ -131,11 +130,11 @@ class QualityCheck:
             if column != self.date_column:
                 completeness_col = column + "_non_null_count"
                 # count column / count date = completeness over window
-                df = self.df.withColumn(completeness_col, (count(column).over(windowSpec) / count(self.date_column).over(windowSpec)))
+                compl_df = self.df.withColumn(completeness_col, (count(column).over(windowSpec) / count(self.date_column).over(windowSpec)))
 
         # drop duplicates
-        compl_df = df.select(
-            [self.date_column] + [column for column in df.columns if "_non_null_count" in column]).dropDuplicates()
+        compl_df = compl_df.select([self.date_column] + [column for column in compl_df.columns if "_non_null_count" in column]).dropDuplicates()
+        
         # delete _non_null_count from name to get original colu,mn
         for column in compl_df.columns:
             if "_non_null_count" in column:
@@ -143,22 +142,27 @@ class QualityCheck:
 
         # melt, add columns
         id_vars = self.date_column
-        values = [col for col in compl_df.columns if col != self.date_column]
+        values = [column for column in compl_df.columns if col != self.date_column]
         vbleName = "key"
         vlueName = "value"
 
-        if "source" in df.columns:
+        # ticketing specific
+        if "source" in self.df.columns:
             compl_df = compl_df.melt(id_vars, values, vbleName, vlueName) \
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("completeness")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
                 .withColumn("table", lit(self.table_name))
-        elif self.fk_identifier is not None and any(column for column in df.columns if self.fk_identifier in column):
+        
+        # reservation specific
+        elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
             compl_df = compl_df.melt(id_vars, values, vbleName, vlueName) \
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("completeness")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
                 .withColumn("table", lit(self.table_name))
+        
+        # coupons specific
         else:
             compl_df = compl_df.melt(id_vars, values, vbleName, vlueName) \
                 .withColumn("module", lit(self.module)) \
@@ -168,7 +172,6 @@ class QualityCheck:
         
         return compl_df
   
-        # Timeliness
     
     # Timeliness
     def dates_check(self):
@@ -181,8 +184,7 @@ class QualityCheck:
         # dataframe of real dates
         real_dates_df = self.df.select(self.date_column).distinct()
 
-        # join to mach dates and union with other kpis
-
+        # join to match real with expected dates
         dates_df = real_dates_df.join(date_range_df, self.date_column) \
                     .withColumn("key", lit("general")) \
                     .withColumn("value", when(col(self.date_column).isNull(), "Failure").otherwise("Success")) \
