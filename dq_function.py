@@ -127,7 +127,7 @@ class QualityCheck:
         # define date window
         windowSpec = Window.partitionBy(self.date_column)
         # loop through columns
-        for column in df.columns:
+        for column in self.df.columns:
             if column != self.date_column:
                 completeness_col = column + "_non_null_count"
                 # count column / count date = completeness over window
