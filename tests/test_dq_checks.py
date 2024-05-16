@@ -44,3 +44,5 @@ def test_completeness_check():
 def test_dates_check():
   dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
   assert not dates_df.isEmpty() or dates_df == None, "Row count KPI not generated succesfuly"
+
+# did all checks run and combine?

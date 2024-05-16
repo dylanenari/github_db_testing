@@ -203,7 +203,7 @@ class QualityCheck:
         compl_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).compute_completeness()
         dates_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).dates_check()
 
-        return counts_df.union(dupl_df).union(comppl_df).union(dates_df)
+        return counts_df.union(dupl_df).union(compl_df).union(dates_df)
 
 
 
