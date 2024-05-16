@@ -17,7 +17,7 @@ airline_code = "AC"
 
 df = spark.sql(f"SELECT * FROM {db_name}.{table_name}") \
     .filter("snapshot_date_time >= '2023-01-01' and snapshot_date_time < '2023-01-08'") \
-    .withColumn("snapshot_date", col("snapshot_date_time").cast(DateType()))\
+    .withColumn("snapshot_date", col("snapshot_date_time").cast(DateType()))
   
 checks = QualityCheck(spark, df, airline_code, module, table_name, date_column)
 
