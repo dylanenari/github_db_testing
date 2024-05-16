@@ -193,3 +193,32 @@ class QualityCheck:
                     .withColumn("table", lit(self.table_name))
         
         return dates_df
+    
+    # All
+    def quality_check(self):
+
+        # Generate all kpis and union
+        counts_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_rows()
+        dupl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_duplicates()
+        compl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_completeness()
+        dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
+
+        return counts_df.union(dupl_df).union(comppl_df).union(dates_df)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -447,4 +447,12 @@ QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_c
 
 # COMMAND ----------
 
+from data_quality_checks import *
+
+# COMMAND ----------
+
+QualityCheck(spark, df, airline_code, module, table_name, date_column).quality_check()
+
+# COMMAND ----------
+
 
