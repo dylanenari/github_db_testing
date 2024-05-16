@@ -52,6 +52,6 @@ def test_generate_results():
   compl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_completeness()
   dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
 
-  results_df = counts_df.union(dupl_df).union(compl_df).union(dates_df).isEmpty()
+  results_df = counts_df.union(dupl_df).union(compl_df).union(dates_df)
 
   assert not results_df.isEmpty() or results_df == None
