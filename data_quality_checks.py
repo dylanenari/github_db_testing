@@ -44,7 +44,7 @@ class QualityCheck:
                     .withColumn("airline_code", lit(self.airline_code)) \
                     .withColumn("key", lit("general")) \
                     .withColumn("table", lit(self.table_name)) \
-                    .select(self.date_column, "key", "value", "module", "kpi", "airline_code", "table"))
+                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value"))
         
         # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
@@ -62,7 +62,8 @@ class QualityCheck:
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("row_count")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name))
+                .withColumn("table", lit(self.table_name)) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
         
         return counts_df
     
@@ -87,7 +88,7 @@ class QualityCheck:
                     .withColumn("airline_code", lit(self.airline_code)) \
                     .withColumn("key", lit("general")) \
                     .withColumn("table", lit(self.table_name)) \
-                    .select(self.date_column, "key", "value", "module", "kpi", "airline_code", "table"))
+                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value"))
         
         # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
@@ -105,7 +106,8 @@ class QualityCheck:
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("duplicate_count")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name))
+                .withColumn("table", lit(self.table_name)) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
         
         # coupons specific
         else:
@@ -116,7 +118,7 @@ class QualityCheck:
                 .withColumn("airline_code", lit(self.airline_code)) \
                 .withColumn("table", lit(self.table_name)) \
                 .withColumn("key", lit("general")) \
-                .select(self.date_column, "key", "value", "module", "kpi", "airline_code", "table")           
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")           
             
         return dupl_df
     
@@ -152,7 +154,8 @@ class QualityCheck:
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("completeness")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name))
+                .withColumn("table", lit(self.table_name)) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
         
         # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
@@ -160,7 +163,8 @@ class QualityCheck:
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("completeness")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name))
+                .withColumn("table", lit(self.table_name)) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
         
         # coupons specific
         else:
@@ -168,7 +172,8 @@ class QualityCheck:
                 .withColumn("module", lit(self.module)) \
                 .withColumn("kpi", lit("completeness")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name))
+                .withColumn("table", lit(self.table_name)) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
         
         return compl_df
   
@@ -190,7 +195,8 @@ class QualityCheck:
                     .withColumn("module", lit(self.module)) \
                     .withColumn("kpi", lit("timeliness")) \
                     .withColumn("airline_code", lit(self.airline_code)) \
-                    .withColumn("table", lit(self.table_name))
+                    .withColumn("table", lit(self.table_name)) \
+                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
         
         return dates_df
     

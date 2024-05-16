@@ -47,11 +47,5 @@ def test_dates_check():
 
 # did all checks run and combine to produce results?
 def test_generate_results():
-  counts_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_rows()
-  dupl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_duplicates()
-  compl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_completeness()
-  dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
-
-  results_df = counts_df.union(dupl_df).union(compl_df).union(dates_df)
-
+  results_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).quality_check()
   assert not results_df.isEmpty() or results_df == None
