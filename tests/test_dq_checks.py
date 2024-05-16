@@ -46,3 +46,16 @@ def test_dates_check():
   assert not dates_df.isEmpty() or dates_df == None, "Row count KPI not generated succesfuly"
 
 # did all checks run and combine?
+def test_generate_results():
+  counts_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).count_rows()
+  dupl_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).count_duplicates()
+  compl_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).compute_completeness()
+  dates_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).dates_check()
+
+  results_df = counts_df.union(dupl_df).union(compl_df).union(dates_df).isEmpty()
+
+  assert not results_df.isEmpty() or results_df == None
+      
+
+
+
