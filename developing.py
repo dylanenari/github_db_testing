@@ -44,6 +44,20 @@ for column in compl_df.columns:
     if "_non_null_count" in column:
         compl_df = compl_df.withColumnRenamed(column, column.replace("_non_null_count", ""))
 
+# melt, add columns
+id_vars = date_column
+values = [column for column in compl_df.columns if column != date_column]
+vbleName = "key"
+vlueName = "value"
+
+# ticketing specific
+if "source" in df.columns:
+    compl_df = compl_df.melt(id_vars, values, vbleName, vlueName) \
+        .withColumn("module", lit(module)) \
+        .withColumn("kpi", lit("completeness")) \
+        .withColumn("airline_code", lit(airline_code)) \
+        .withColumn("table", lit(table_name))
+
 # COMMAND ----------
 
 # melt, add columns
@@ -51,10 +65,6 @@ id_vars = date_column
 values = [column for column in compl_df.columns if column != date_column]
 vbleName = "key"
 vlueName = "value"
-
-# COMMAND ----------
-
-print(values)
 
 # COMMAND ----------
 
@@ -69,6 +79,56 @@ if "source" in df.columns:
 # COMMAND ----------
 
 display(compl_df)
+
+# COMMAND ----------
+
+class QualityDummy:
+    def __init__(self, spark: SparkSession, df: DataFrame,
+               airline_code: str, module: str, table_name: str, date_column: str,
+               fk_identifier: str = None):
+        self.spark = spark
+        self.df = df
+        self.airline_code = airline_code
+        self.module = module
+        self.table_name = table_name
+        self.date_column = date_column
+        self.fk_identifier = fk_identifier
+
+    def compute_completeness(self):
+        # define date window
+        windowSpec = Window.partitionBy(self.date_column)
+        # loop through columns
+        for column in self.df.columns:
+            if column != self.date_column:
+                completeness_col = column + "_non_null_count"
+                # count column / count date = completeness over window
+                self.df = self.df.withColumn(completeness_col, (count(column).over(windowSpec) / count(self.date_column).over(windowSpec)))
+
+        # drop duplicates
+        compl_df = self.df.select([self.date_column] + [column for column in self.df.columns if "_non_null_count" in column]).dropDuplicates()
+
+        '''# delete _non_null_count from name to get original column
+        for column in compl_df.columns:
+            if "_non_null_count" in column:
+                compl_df = compl_df.withColumnRenamed(column, column.replace("_non_null_count", ""))
+
+        # melt, add columns
+        id_vars = self.date_column
+        values = [column for column in compl_df.columns if column != self.date_column]
+        vbleName = "key"
+        vlueName = "value"
+
+        # ticketing specific
+        if "source" in self.df.columns:
+            compl_df = compl_df.melt(id_vars, values, vbleName, vlueName) \
+                .withColumn("module", lit(self.module)) \
+                .withColumn("kpi", lit("completeness")) \
+                .withColumn("airline_code", lit(self.airline_code)) \
+                .withColumn("table", lit(self.table_name))'''
+        return compl_df
+
+dummy_compl_df = QualityDummy(spark, df, airline_code, module, table_name, date_column).compute_completeness()
+display(dummy_compl_df)
 
 # COMMAND ----------
 
@@ -194,10 +254,10 @@ class QualityCheck:
             if column != self.date_column:
                 completeness_col = column + "_non_null_count"
                 # count column / count date = completeness over window
-                compl_df = self.df.withColumn(completeness_col, (count(column).over(windowSpec) / count(self.date_column).over(windowSpec)))
+                df = self.df.withColumn(completeness_col, (count(column).over(windowSpec) / count(self.date_column).over(windowSpec)))
 
         # drop duplicates
-        compl_df = compl_df.select([self.date_column] + [column for column in compl_df.columns if "_non_null_count" in column]).dropDuplicates()
+        compl_df = df.select([self.date_column] + [column for column in df.columns if "_non_null_count" in column]).dropDuplicates()
         
         # delete _non_null_count from name to get original colu,mn
         for column in compl_df.columns:
@@ -260,7 +320,11 @@ class QualityCheck:
 
 # COMMAND ----------
 
-QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_completeness()
+new_check = QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_completeness()
+
+# COMMAND ----------
+
+display(new_check)
 
 # COMMAND ----------
 
@@ -268,7 +332,13 @@ from data_quality_checks import *
 
 # COMMAND ----------
 
-QualityCheck(spark, df, airline_code, module, table_name, date_column).quality_check()
+dummy_result = QualityCheck(spark, df, airline_code, module, table_name, date_column).quality_check()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC #### Showing only last feature, loop not saving previous ones
+# MAGIC Works executing check directly (previous cells) but fails when executing via class method call....
 
 # COMMAND ----------
 
