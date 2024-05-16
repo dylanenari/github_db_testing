@@ -174,3 +174,22 @@ class QualityCheck:
   
     # Timeliness
     def dates_check(self):
+
+        # range of expected dates
+        min_date, max_date = self.df.select(min(self.date_column), max(self.date_column)).first()
+        date_range_df = spark.createDataFrame([(min_date, max_date)], ["min_date", "max_date"]) \
+            .select(explode(expr("sequence(to_date(min_date), to_date(max_date), interval 1 day)")).alias(self.date_column))
+
+        # dataframe of real dates
+        real_dates_df = self.df.select(self.date_column).distinct()
+
+        # join to match real with expected dates
+        dates_df = real_dates_df.join(date_range_df, self.date_column) \
+                    .withColumn("key", lit("general")) \
+                    .withColumn("value", when(col(self.date_column).isNull(), "Failure").otherwise("Success")) \
+                    .withColumn("module", lit(self.module)) \
+                    .withColumn("kpi", lit("timeliness")) \
+                    .withColumn("airline_code", lit(self.airline_code)) \
+                    .withColumn("table", lit(self.table_name))
+        
+        return dates_df
