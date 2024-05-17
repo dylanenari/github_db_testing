@@ -328,7 +328,7 @@ display(new_check)
 
 # COMMAND ----------
 
-from data_quality_checks import *
+from src.data_quality_checks import *
 
 # COMMAND ----------
 

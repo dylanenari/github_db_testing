@@ -1,4 +1,4 @@
-from data_quality_checks import *
+from src.data_quality_checks import *
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DateType
 from pyspark.sql.functions import col
