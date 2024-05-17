@@ -12,7 +12,7 @@ spark = SparkSession.builder \
 def tableExists(db_name, table_name):
   return spark.catalog.tableExists(f"{db_name}.{table_name}")
 
-
+# define quality check class
 class QualityCheck:
     def __init__(self, spark: SparkSession, df: DataFrame,
                airline_code: str, module: str, table_name: str, date_column: str,
@@ -25,7 +25,7 @@ class QualityCheck:
         self.date_column = date_column
         self.fk_identifier = fk_identifier
 
-    # Row count
+    # row count
     def count_rows(self):
 
         # ticketing specific
@@ -67,7 +67,7 @@ class QualityCheck:
         
         return counts_df
     
-    # Uniqueness
+    # uniqueness
     def count_duplicates(self):
            
         # ticketing specific
@@ -122,7 +122,7 @@ class QualityCheck:
             
         return dupl_df
     
-    # Completeness
+    # completeness
     def compute_completeness(self):
 
         # define date window
@@ -137,7 +137,7 @@ class QualityCheck:
         # drop duplicates
         compl_df = self.df.select([self.date_column] + [column for column in self.df.columns if "_non_null_count" in column]).dropDuplicates()
         
-        # delete _non_null_count from name to get original colu,mn
+        # delete _non_null_count from name to get original column
         for column in compl_df.columns:
             if "_non_null_count" in column:
                 compl_df = compl_df.withColumnRenamed(column, column.replace("_non_null_count", ""))
@@ -177,7 +177,7 @@ class QualityCheck:
         
         return compl_df
   
-    # Timeliness
+    # timeliness
     def dates_check(self):
 
         # range of expected dates
@@ -200,10 +200,10 @@ class QualityCheck:
         
         return dates_df
     
-    # All
+    # all kpis
     def quality_check(self):
 
-        # Generate all kpis and union
+        # call all functions and union
         counts_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).count_rows()
         dupl_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).count_duplicates()
         compl_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).compute_completeness()

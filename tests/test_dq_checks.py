@@ -28,24 +28,24 @@ def test_tableExists():
 # did the row count run?
 def test_rows_check():
   counts_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_rows()
-  assert not counts_df.isEmpty() or counts_df == None, "Row count KPI not generated succesfuly"
+  assert not counts_df.isEmpty() or counts_df == None, "Row count KPI not generated successfully"
 
 # did the duplicate count run?
 def test_duplicates_check():
   dupl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_duplicates()
-  assert not dupl_df.isEmpty() or dupl_df == None, "Duplicate count KPI not generated succesfuly"
+  assert not dupl_df.isEmpty() or dupl_df == None, "Duplicate count KPI not generated successfully"
 
 # did the completeness ratio run?
 def test_completeness_check():
   compl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_completeness()
-  assert not compl_df.isEmpty() or compl_df == None, "Completeness ratio KPI not generated succesfuly"
+  assert not compl_df.isEmpty() or compl_df == None, "Completeness ratio KPI not generated successfully"
 
 # did the timeliness run?
 def test_dates_check():
   dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
-  assert not dates_df.isEmpty() or dates_df == None, "Row count KPI not generated succesfuly"
+  assert not dates_df.isEmpty() or dates_df == None, "Row count KPI not generated successfully"
 
-# did all checks run and combine to produce results?
+# did all checks run and combine to produce results dataframe?
 def test_generate_results():
   results_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).quality_check()
-  assert not results_df.isEmpty() or results_df == None
+  assert not results_df.isEmpty() or results_df == None, "DQ results not generated successfully"
