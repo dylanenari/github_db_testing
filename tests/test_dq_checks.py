@@ -63,7 +63,7 @@ def test_dates_check():
   dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
   assert not dates_df.isEmpty() or dates_df == None, "Date completeness KPI not generated successfully"
 
-# do completeness ratio results have correct schema?
+# do dates results have correct schema?
 def test_dates_cols():
   expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
   dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
@@ -73,3 +73,11 @@ def test_dates_cols():
 def test_generate_results():
   results_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).quality_check()
   assert not results_df.isEmpty() or results_df == None, "DQ results not generated successfully"
+
+
+
+
+
+
+
+

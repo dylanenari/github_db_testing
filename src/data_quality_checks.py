@@ -38,14 +38,15 @@ class QualityCheck:
                 .withColumn("airline_code", lit(self.airline_code)) \
                 .withColumnRenamed("source", "key") \
                 .withColumn("table", lit(self.table_name)) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value") \
                 .union(self.df.groupBy(self.date_column).agg(count("*").alias("value")) \
                     .withColumn("module", lit(self.module)) \
                     .withColumn("kpi", lit("row_count")) \
                     .withColumn("airline_code", lit(self.airline_code)) \
                     .withColumn("key", lit("general")) \
                     .withColumn("table", lit(self.table_name)) \
-                    ) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
+                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
+                    )
         
         # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
@@ -65,6 +66,17 @@ class QualityCheck:
                 .withColumn("airline_code", lit(self.airline_code)) \
                 .withColumn("table", lit(self.table_name)) \
                 .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
+
+        # coupons specific
+        else:
+            # count by date, total, add columns
+            counts_df = self.df.groupBy(self.date_column).agg(count("*").alias("value")) \
+                .withColumn("module", lit(self.module)) \
+                .withColumn("kpi", lit("row_count")) \
+                .withColumn("airline_code", lit(self.airline_code)) \
+                .withColumn("table", lit(self.table_name)) \
+                .withColumn("key", lit("general")) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")   
         
         return counts_df
     
@@ -82,15 +94,16 @@ class QualityCheck:
                 .withColumn("airline_code", lit(self.airline_code)) \
                 .withColumnRenamed("source", "key") \
                 .withColumn("table", lit(self.table_name)) \
-                .union(self.df.groupBy(self.df.columns).count().filter("count > 1")
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value") \
+                .union(self.df.groupBy(self.df.columns).count().filter("count > 1") \
                     .groupBy(self.date_column).agg(count("*").alias("value")) \
                     .withColumn("module", lit(self.module)) \
                     .withColumn("kpi", lit("duplicate_count")) \
                     .withColumn("airline_code", lit(self.airline_code)) \
                     .withColumn("key", lit("general")) \
-                    .withColumn("table", lit(self.table_name))
-                    ) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
+                    .withColumn("table", lit(self.table_name)) \
+                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
+                    )
         
         # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
@@ -114,9 +127,10 @@ class QualityCheck:
         # coupons specific
         else:
             # count by date, total, add columns
-            counts_df = self.df.groupBy(self.date_column).agg(count("*").alias("value")) \
+            dupl_df = self.df.groupBy(self.df.columns).count().filter("count > 1") \
+                .groupBy(self.date_column).agg(count("*").alias("value")) \
                 .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("row_count")) \
+                .withColumn("kpi", lit("duplicate_count")) \
                 .withColumn("airline_code", lit(self.airline_code)) \
                 .withColumn("table", lit(self.table_name)) \
                 .withColumn("key", lit("general")) \
