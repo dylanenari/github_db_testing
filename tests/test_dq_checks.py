@@ -31,7 +31,7 @@ def test_rows_check():
   assert not counts_df.isEmpty() or counts_df == None, "Row count KPI not generated successfully"
 
 # do row count results have correct schema?
-def test_count_cols():
+def test_rows_cols():
   expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
   counts_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_rows()
   assert counts_df.columns == expected_cols, "Wrong schema in row count KPI"
