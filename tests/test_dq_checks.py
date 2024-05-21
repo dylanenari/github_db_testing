@@ -39,7 +39,7 @@ def test_rows_cols():
 # did the duplicate count run?
 def test_duplicates_check():
   dupl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_duplicates()
-  assert cupl_df is not None and not dupl_df.isEmpty(), "Duplicate count KPI not generated successfully"
+  assert dupl_df is not None and not dupl_df.isEmpty(), "Duplicate count KPI not generated successfully"
 
 # do duplicates count results have correct schema?
 def test_duplicates_cols():
