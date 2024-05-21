@@ -1,4 +1,4 @@
-## ti-tables Data Quality Solultion ✨
+## ti-tables Data Quality Solution ✨
 
 This repository keeps your ti-tables output datasets clean! Let's explore what's inside:
 
