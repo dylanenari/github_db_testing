@@ -44,7 +44,8 @@ class QualityCheck:
                     .withColumn("airline_code", lit(self.airline_code)) \
                     .withColumn("key", lit("general")) \
                     .withColumn("table", lit(self.table_name)) \
-                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value"))
+                    ) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
         
         # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
@@ -87,8 +88,9 @@ class QualityCheck:
                     .withColumn("kpi", lit("duplicate_count")) \
                     .withColumn("airline_code", lit(self.airline_code)) \
                     .withColumn("key", lit("general")) \
-                    .withColumn("table", lit(self.table_name)) \
-                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value"))
+                    .withColumn("table", lit(self.table_name))
+                    ) \
+                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
         
         # reservation specific
         elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
