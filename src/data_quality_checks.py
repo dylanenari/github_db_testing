@@ -32,7 +32,7 @@ class QualityCheck:
             .withColumn("kpi", lit(method)) \
             .withColumn("airline_code", lit(self.airline_code)) \
             .withColumn("table", lit(self.table_name))
-    
+
     @property
     def segmentation_keys(self):
         segmentation_keys = []
@@ -40,7 +40,7 @@ class QualityCheck:
             segmentation_keys.append('source')
         if self.fk_identifier:
             segmentation_keys.extend(df_col for df_col in self.df.columns if self.fk_identifier in df_col)
-            
+
         return segmentation_keys
 
     # row count
@@ -55,11 +55,11 @@ class QualityCheck:
             # counts by date, segmentation keys and date, total
             exprs = [count(c).alias(f"{c}") for c in self.segmentation_keys]
             segmented_df = self.df.groupBy(self.date_column).agg(*exprs)
-    
+
             # transpose and add columns
             segmented_df = segmented_df.melt(self.date_column, self.segmentation_keys, "key", "value")
-            
-            # Add segmented data to general data 
+
+            # Add segmented data to general data
             counts_df = counts_df.union(segmented_df)
 
         return self._append_metadata(counts_df, "row_count")
@@ -90,49 +90,15 @@ class QualityCheck:
 
     # completeness
     def compute_completeness(self):
+        
+        ratio_cols = [(count(col) / count(self.date_column)).alias(col)
+                for col in self.df.columns if col != self.date_column]
+        
+        completeness_df = (self.df.groupby(self.date_column).agg(*ratio_cols)
+                           .melt(ids=self.date_column, values=None,
+                                 variableColumnName="key", valueColumnName="value"))
 
-        # define date window
-        window_spec = Window.partitionBy(self.date_column)
-        # loop through columns
-        for df_col in self.df.columns:
-            if df_col != self.date_column:
-                completeness_col = df_col + "_non_null_count"
-                # count column / count date = completeness over window
-                self.df = self.df.withColumn(completeness_col, (
-                        count(df_col).over(window_spec) / count(self.date_column).over(window_spec)))
-
-        # drop duplicates
-        compl_df = self.df.select(
-            [self.date_column] + [df_col for df_col in self.df.columns if "_non_null_count" in df_col]).dropDuplicates()
-
-        # delete _non_null_count from name to get original column
-        for df_col in compl_df.columns:
-            if "_non_null_count" in df_col:
-                compl_df = compl_df.withColumnRenamed(df_col, df_col.replace("_non_null_count", ""))
-
-        # melt, add columns
-        id_vars = self.date_column
-        values = [df_col for df_col in compl_df.columns if df_col != self.date_column]
-        vble_name = "key"
-        vlue_name = "value"
-
-        # ticketing specific
-        if "source" in self.df.columns:
-            compl_df = compl_df.melt(id_vars, values, vble_name, vlue_name) \
-                .select(self.date_column, "key", "value")
-
-        # reservation specific
-        elif self.fk_identifier is not None and any(
-                df_col for df_col in self.df.columns if self.fk_identifier in df_col):
-            compl_df = compl_df.melt(id_vars, values, vble_name, vlue_name) \
-                .select(self.date_column, "key", "value")
-
-        # coupons specific
-        else:
-            compl_df = compl_df.melt(id_vars, values, vble_name, vlue_name) \
-                .select(self.date_column, "key", "value")
-
-        return self._append_metadata(compl_df, "completeness")
+        return self._append_metadata(completeness_df, "completeness")
 
     # timeliness
     def dates_check(self):
