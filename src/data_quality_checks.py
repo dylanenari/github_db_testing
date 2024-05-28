@@ -75,7 +75,7 @@ class QualityCheck:
         # Counting row repetition
         working_df = self.df.groupBy(self.df.columns).count().filter("count > 1")
 
-        dupl_df = working_df.groupBy(self.date_column).agg(count("*").alias("value")) \
+        dupl_df = working_df.groupBy(self.date_column).agg(sum("count").alias("value")) \
             .withColumn("key", lit(None))
         segmented_df = None
 
@@ -83,7 +83,7 @@ class QualityCheck:
         if "source" in self.df.columns:
             working_df.cache()
             # filter duplicate rows, count by date, source and date, total and add columns
-            segmented_df = working_df.groupBy(self.date_column, "source").agg(count("*").alias("value")) \
+            segmented_df = working_df.groupBy(self.date_column, "source").agg(sum("count").alias("value")) \
                 .withColumnRenamed("source", "key")
 
         # reservation specific
@@ -94,13 +94,12 @@ class QualityCheck:
             fk_cols = [df_col for df_col in self.df.columns if self.fk_identifier in df_col]
 
             # filter duplicate rows and apply count expressions
-            exprs = [count(c).alias(f"{c}") for c in fk_cols]
+            partial_kpis = (working_df.groupBy(self.date_column, c)
+                            .agg(sum("count").alias("value"))
+                            .withColumnRenamed(c, "key")
+                            for c in fk_cols)
             working_df.cache()
-            segmented_df = working_df.groupBy(self.date_column).agg(*exprs)
-
-            # transpose and add columns
-            segmented_df = segmented_df.melt(self.date_column, [df_col for df_col in dupl_df.columns
-                                                                if df_col != self.date_column], "key", "value")
+            segmented_df = reduce(lambda df1, df2: df1.union(df2), partial_kpis)
 
         if segmented_df is not None:
             dupl_df = dupl_df.union(segmented_df)
