@@ -1,246 +1,186 @@
+from dataclasses import dataclass
+from functools import reduce
+
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import *
-from pyspark.sql.types import StringType
 from pyspark.sql.window import Window
 
 # initialize Spark
 spark = SparkSession.builder \
-                    .appName('integrity-tests') \
-                    .getOrCreate()
+    .appName('integrity-tests') \
+    .getOrCreate()
+
 
 # load dataframe function
-def tableExists(db_name, table_name):
-  return spark.catalog.tableExists(f"{db_name}.{table_name}")
+def table_exists(db_name, table_name):
+    return spark.catalog.tableExists(f"{db_name}.{table_name}")
+
 
 # define quality check class
+@dataclass
 class QualityCheck:
-    def __init__(self, spark: SparkSession, df: DataFrame,
-               airline_code: str, module: str, table_name: str, date_column: str,
-               fk_identifier: str = None):
-        self.spark = spark
-        self.df = df
-        self.airline_code = airline_code
-        self.module = module
-        self.table_name = table_name
-        self.date_column = date_column
-        self.fk_identifier = fk_identifier
+    ss: SparkSession
+    df: DataFrame
+    airline_code: str
+    module: str
+    table_name: str
+    date_column: str
+    fk_identifier: str = None
+
+    def _append_metadata(self, df, method):
+        return df.withColumn("module", lit(self.module)) \
+            .withColumn("kpi", lit(method)) \
+            .withColumn("airline_code", lit(self.airline_code)) \
+            .withColumn("table", lit(self.table_name))
 
     # row count
     def count_rows(self):
+
+        # count by date, total, add columns
+        counts_df = self.df.groupBy(self.date_column).agg(count("*").alias("value")) \
+            .withColumn("key", lit(None))
+        segmented_df = None
 
         # ticketing specific
         if "source" in self.df.columns:
 
             # count by date, source and date, total and add columns
-            counts_df = self.df.groupBy(self.date_column, "source").agg(count("*").alias("value")) \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("row_count")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumnRenamed("source", "key") \
-                .withColumn("table", lit(self.table_name)) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value") \
-                .union(self.df.groupBy(self.date_column).agg(count("*").alias("value")) \
-                    .withColumn("module", lit(self.module)) \
-                    .withColumn("kpi", lit("row_count")) \
-                    .withColumn("airline_code", lit(self.airline_code)) \
-                    .withColumn("key", lit("general")) \
-                    .withColumn("table", lit(self.table_name)) \
-                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
-                    )
-        
+            segmented_df = self.df.groupBy(self.date_column, "source").agg(count("*").alias("value")) \
+                .withColumnRenamed("source", "key")
+
         # reservation specific
-        elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
-            
+        elif self.fk_identifier is not None and any(
+                df_col for df_col in self.df.columns if self.fk_identifier in df_col):
+
             # isolate foreign key columns
-            fk_cols = [column for column in self.df.columns if self.fk_identifier in column]
+            fk_cols = [df_col for df_col in self.df.columns if self.fk_identifier in df_col]
 
             # counts by date, foreign keys and date, total
-            exprs = [count(c).alias(f"{c}") for c in fk_cols] + [count("*").alias("general")]
-            counts_df = self.df.groupBy(self.date_column).agg(*exprs)
+            exprs = [count(c).alias(f"{c}") for c in fk_cols]
+            segmented_df = self.df.groupBy(self.date_column).agg(*exprs)
 
             # transpose and add columns
-            counts_df = counts_df.melt(self.date_column, [column for column in counts_df.columns if column != self.date_column],
-                                    "key", "value") \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("row_count")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name)) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
+            segmented_df = segmented_df.melt(self.date_column, [df_col for df_col in counts_df.columns
+                                                                if df_col != self.date_column],
+                                             "key", "value")
 
-        # coupons specific
-        else:
-            # count by date, total, add columns
-            counts_df = self.df.groupBy(self.date_column).agg(count("*").alias("value")) \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("row_count")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name)) \
-                .withColumn("key", lit("general")) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")   
-        
-        return counts_df
-    
+        if segmented_df is not None:
+            counts_df = counts_df.union(segmented_df)
+
+        return self._append_metadata(counts_df, "row_count")
+
     # uniqueness
     def count_duplicates(self):
-           
+
+        # Counting row repetition
+        working_df = self.df.groupBy(self.df.columns).count().filter("count > 1")
+
+        dupl_df = working_df.groupBy(self.date_column).agg(count("*").alias("value")) \
+            .withColumn("key", lit(None))
+        segmented_df = None
+
         # ticketing specific
         if "source" in self.df.columns:
-
+            working_df.cache()
             # filter duplicate rows, count by date, source and date, total and add columns
-            dupl_df = self.df.groupBy(self.df.columns).count().filter("count > 1") \
-                .groupBy(self.date_column, "source").agg(count("*").alias("value")) \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("duplicate_count")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumnRenamed("source", "key") \
-                .withColumn("table", lit(self.table_name)) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value") \
-                .union(self.df.groupBy(self.df.columns).count().filter("count > 1") \
-                    .groupBy(self.date_column).agg(count("*").alias("value")) \
-                    .withColumn("module", lit(self.module)) \
-                    .withColumn("kpi", lit("duplicate_count")) \
-                    .withColumn("airline_code", lit(self.airline_code)) \
-                    .withColumn("key", lit("general")) \
-                    .withColumn("table", lit(self.table_name)) \
-                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
-                    )
-        
+            segmented_df = working_df.groupBy(self.date_column, "source").agg(count("*").alias("value")) \
+                .withColumnRenamed("source", "key")
+
         # reservation specific
-        elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
-            
+        elif self.fk_identifier is not None and any(
+                df_col for df_col in self.df.columns if self.fk_identifier in df_col):
+
             # isolate foreign key columns
-            fk_cols = [column for column in self.df.columns if self.fk_identifier in column]            
+            fk_cols = [df_col for df_col in self.df.columns if self.fk_identifier in df_col]
 
             # filter duplicate rows and apply count expressions
-            exprs = [count(c).alias(f"{c}") for c in fk_cols] + [count("*").alias("general")]
-            dupl_df = self.df.groupBy(self.df.columns).count().filter("count > 1") \
-                .groupBy(self.date_column).agg(*exprs)
+            exprs = [count(c).alias(f"{c}") for c in fk_cols]
+            working_df.cache()
+            segmented_df = working_df.groupBy(self.date_column).agg(*exprs)
 
             # transpose and add columns
-            dupl_df = dupl_df.melt(self.date_column, [column for column in dupl_df.columns if column != self.date_column], "key", "value") \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("duplicate_count")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name)) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
-        
-        # coupons specific
-        else:
-            # count by date, total, add columns
-            dupl_df = self.df.groupBy(self.df.columns).count().filter("count > 1") \
-                .groupBy(self.date_column).agg(count("*").alias("value")) \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("duplicate_count")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name)) \
-                .withColumn("key", lit("general")) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")           
-            
-        return dupl_df
-    
+            segmented_df = segmented_df.melt(self.date_column, [df_col for df_col in dupl_df.columns
+                                                                if df_col != self.date_column], "key", "value")
+
+        if segmented_df is not None:
+            dupl_df = dupl_df.union(segmented_df)
+
+        return self._append_metadata(dupl_df, "duplicate_count")
+
     # completeness
     def compute_completeness(self):
 
         # define date window
-        windowSpec = Window.partitionBy(self.date_column)
+        window_spec = Window.partitionBy(self.date_column)
         # loop through columns
-        for column in self.df.columns:
-            if column != self.date_column:
-                completeness_col = column + "_non_null_count"
+        for df_col in self.df.columns:
+            if df_col != self.date_column:
+                completeness_col = df_col + "_non_null_count"
                 # count column / count date = completeness over window
-                self.df = self.df.withColumn(completeness_col, (count(column).over(windowSpec) / count(self.date_column).over(windowSpec)))
+                self.df = self.df.withColumn(completeness_col, (
+                        count(df_col).over(window_spec) / count(self.date_column).over(window_spec)))
 
         # drop duplicates
-        compl_df = self.df.select([self.date_column] + [column for column in self.df.columns if "_non_null_count" in column]).dropDuplicates()
-        
+        compl_df = self.df.select(
+            [self.date_column] + [df_col for df_col in self.df.columns if "_non_null_count" in df_col]).dropDuplicates()
+
         # delete _non_null_count from name to get original column
-        for column in compl_df.columns:
-            if "_non_null_count" in column:
-                compl_df = compl_df.withColumnRenamed(column, column.replace("_non_null_count", ""))
+        for df_col in compl_df.columns:
+            if "_non_null_count" in df_col:
+                compl_df = compl_df.withColumnRenamed(df_col, df_col.replace("_non_null_count", ""))
 
         # melt, add columns
         id_vars = self.date_column
-        values = [column for column in compl_df.columns if column != self.date_column]
-        vbleName = "key"
-        vlueName = "value"
+        values = [df_col for df_col in compl_df.columns if df_col != self.date_column]
+        vble_name = "key"
+        vlue_name = "value"
 
         # ticketing specific
         if "source" in self.df.columns:
-            compl_df = compl_df.melt(id_vars, values, vbleName, vlueName) \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("completeness")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name)) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
-        
+            compl_df = compl_df.melt(id_vars, values, vble_name, vlue_name) \
+                .select(self.date_column, "key", "value")
+
         # reservation specific
-        elif self.fk_identifier is not None and any(column for column in self.df.columns if self.fk_identifier in column):
-            compl_df = compl_df.melt(id_vars, values, vbleName, vlueName) \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("completeness")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name)) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
-        
+        elif self.fk_identifier is not None and any(
+                df_col for df_col in self.df.columns if self.fk_identifier in df_col):
+            compl_df = compl_df.melt(id_vars, values, vble_name, vlue_name) \
+                .select(self.date_column, "key", "value")
+
         # coupons specific
         else:
-            compl_df = compl_df.melt(id_vars, values, vbleName, vlueName) \
-                .withColumn("module", lit(self.module)) \
-                .withColumn("kpi", lit("completeness")) \
-                .withColumn("airline_code", lit(self.airline_code)) \
-                .withColumn("table", lit(self.table_name)) \
-                .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
-        
-        return compl_df
-  
+            compl_df = compl_df.melt(id_vars, values, vble_name, vlue_name) \
+                .select(self.date_column, "key", "value")
+
+        return self._append_metadata(compl_df, "completeness")
+
     # timeliness
     def dates_check(self):
 
         # range of expected dates
         min_date, max_date = self.df.select(min(self.date_column), max(self.date_column)).first()
+        date_series = expr("sequence(to_date(min_date), to_date(max_date), interval 1 day)")
         date_range_df = spark.createDataFrame([(min_date, max_date)], ["min_date", "max_date"]) \
-            .select(explode(expr("sequence(to_date(min_date), to_date(max_date), interval 1 day)")).alias(self.date_column))
+            .select(explode(date_series).alias(self.date_column))
 
         # dataframe of real dates
         real_dates_df = self.df.select(self.date_column).distinct()
 
         # join to match real with expected dates
+        is_there_data = when(col(self.date_column).isNull(), "Failure").otherwise("Success")
         dates_df = real_dates_df.join(date_range_df, self.date_column) \
-                    .withColumn("key", lit("general")) \
-                    .withColumn("value", when(col(self.date_column).isNull(), "Failure").otherwise("Success")) \
-                    .withColumn("module", lit(self.module)) \
-                    .withColumn("kpi", lit("timeliness")) \
-                    .withColumn("airline_code", lit(self.airline_code)) \
-                    .withColumn("table", lit(self.table_name)) \
-                    .select(self.date_column, "airline_code", "module", "table", "kpi", "key", "value")
-        
-        return dates_df
-    
+            .select(self.date_column, lit(None).alias("key"), is_there_data.alias("value"))
+
+        return self._append_metadata(dates_df, "timeliness")
+
     # all kpis
     def quality_check(self):
 
         # call all functions and union
-        counts_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).count_rows()
-        dupl_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).count_duplicates()
-        compl_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).compute_completeness()
-        dates_df = QualityCheck(self.spark, self.df, self.airline_code, self.module, self.table_name, self.date_column).dates_check()
+        checks = [
+            self.count_rows(),
+            self.count_duplicates(),
+            self.compute_completeness(),
+            self.dates_check()
+        ]
 
-        return counts_df.union(dupl_df).union(compl_df).union(dates_df)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return reduce(lambda df1, df2: df1.union(df2), checks)
