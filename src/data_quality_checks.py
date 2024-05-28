@@ -32,6 +32,16 @@ class QualityCheck:
             .withColumn("kpi", lit(method)) \
             .withColumn("airline_code", lit(self.airline_code)) \
             .withColumn("table", lit(self.table_name))
+    
+    @property
+    def segmentation_keys(self):
+        segmentation_keys = []
+        if 'source' in self.df.columns:
+            segmentation_keys.append('source')
+        if self.fk_identifier:
+            segmentation_keys.extend(df_col for df_col in self.df.columns if self.fk_identifier in df_col)
+            
+        return segmentation_keys
 
     # row count
     def count_rows(self):
@@ -41,30 +51,15 @@ class QualityCheck:
             .withColumn("key", lit(None))
         segmented_df = None
 
-        # ticketing specific
-        if "source" in self.df.columns:
-
-            # count by date, source and date, total and add columns
-            segmented_df = self.df.groupBy(self.date_column, "source").agg(count("*").alias("value")) \
-                .withColumnRenamed("source", "key")
-
-        # reservation specific
-        elif self.fk_identifier is not None and any(
-                df_col for df_col in self.df.columns if self.fk_identifier in df_col):
-
-            # isolate foreign key columns
-            fk_cols = [df_col for df_col in self.df.columns if self.fk_identifier in df_col]
-
-            # counts by date, foreign keys and date, total
-            exprs = [count(c).alias(f"{c}") for c in fk_cols]
+        if self.segmentation_keys:
+            # counts by date, segmentation keys and date, total
+            exprs = [count(c).alias(f"{c}") for c in self.segmentation_keys]
             segmented_df = self.df.groupBy(self.date_column).agg(*exprs)
-
+    
             # transpose and add columns
-            segmented_df = segmented_df.melt(self.date_column, [df_col for df_col in counts_df.columns
-                                                                if df_col != self.date_column],
-                                             "key", "value")
-
-        if segmented_df is not None:
+            segmented_df = segmented_df.melt(self.date_column, self.segmentation_keys, "key", "value")
+            
+            # Add segmented data to general data 
             counts_df = counts_df.union(segmented_df)
 
         return self._append_metadata(counts_df, "row_count")
@@ -80,28 +75,15 @@ class QualityCheck:
         segmented_df = None
 
         # ticketing specific
-        if "source" in self.df.columns:
-            working_df.cache()
-            # filter duplicate rows, count by date, source and date, total and add columns
-            segmented_df = working_df.groupBy(self.date_column, "source").agg(sum("count").alias("value")) \
-                .withColumnRenamed("source", "key")
-
-        # reservation specific
-        elif self.fk_identifier is not None and any(
-                df_col for df_col in self.df.columns if self.fk_identifier in df_col):
-
-            # isolate foreign key columns
-            fk_cols = [df_col for df_col in self.df.columns if self.fk_identifier in df_col]
-
+        if self.segmentation_keys:
             # filter duplicate rows and apply count expressions
+            working_df.cache()
             partial_kpis = (working_df.groupBy(self.date_column, c)
                             .agg(sum("count").alias("value"))
                             .withColumnRenamed(c, "key")
-                            for c in fk_cols)
-            working_df.cache()
+                            for c in self.segmentation_keys)
             segmented_df = reduce(lambda df1, df2: df1.union(df2), partial_kpis)
 
-        if segmented_df is not None:
             dupl_df = dupl_df.union(segmented_df)
 
         return self._append_metadata(dupl_df, "duplicate_count")
