@@ -22,17 +22,17 @@ df = spark.sql(f"SELECT * FROM {db_name}.{table_name}") \
 checks = QualityCheck(spark, df, airline_code, module, table_name, date_column)
 
 # does the table exist?
-def test_tableExists():
-  assert tableExists(db_name, table_name) is True, "Table not found in database"
+def test_table_exists():
+  assert table_exists(db_name, table_name) is True, "Table not found in database"
 
 # did the row count run?
-def test_rows_check():
+def test_counts_check():
   counts_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_rows()
   assert counts_df is not None and not counts_df.isEmpty(), "Row count KPI not generated successfully"
 
 # do row count results have correct schema?
-def test_rows_cols():
-  expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
+def test_counts_cols():
+  expected_cols = [date_column, 'key', 'value', 'module', 'kpi', 'airline_code', 'table']
   counts_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_rows()
   assert counts_df.columns == expected_cols, "Wrong schema in row count KPI"
 
@@ -43,7 +43,7 @@ def test_duplicates_check():
 
 # do duplicates count results have correct schema?
 def test_duplicates_cols():
-  expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
+  expected_cols = [date_column, 'key', 'value', 'module', 'kpi', 'airline_code', 'table']
   dupl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).count_duplicates()
   assert dupl_df.columns == expected_cols, "Wrong schema in duplicate count KPI"
 
@@ -54,7 +54,7 @@ def test_completeness_check():
 
 # do completeness ratio results have correct schema?
 def test_completeness_cols():
-  expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
+  expected_cols = [date_column, 'key', 'value', 'module', 'kpi', 'airline_code', 'table']
   compl_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).compute_completeness()
   assert compl_df.columns == expected_cols, "Wrong schema in completeness ratio KPI"
 
@@ -65,7 +65,7 @@ def test_dates_check():
 
 # do dates results have correct schema?
 def test_dates_cols():
-  expected_cols = [date_column, "airline_code", "module", "table", "kpi", "key", "value"]
+  expected_cols = [date_column, 'key', 'value', 'module', 'kpi', 'airline_code', 'table']
   dates_df = QualityCheck(spark, df, airline_code, module, table_name, date_column).dates_check()
   assert dates_df.columns == expected_cols, "Wrong schema in dates completeness KPI"
 
