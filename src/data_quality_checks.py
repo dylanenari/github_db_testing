@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from functools import reduce
+from functools import reduce as reduce_function
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import *
@@ -82,11 +82,27 @@ class QualityCheck:
                             .agg(sum("count").alias("value"))
                             .withColumnRenamed(c, "key")
                             for c in self.segmentation_keys)
-            segmented_df = reduce(lambda df1, df2: df1.union(df2), partial_kpis)
+            
+            # ensure partial_kpis generates at least one DataFrame
+            try:
+                first_df = next(partial_kpis)
+            except StopIteration:
+                raise ValueError("No DataFrames generated from partial_kpis.")
+
+            # use functools.reduce to combine the DataFrames
+            try:
+                segmented_df = reduce_function(lambda df1, df2: df1.union(df2), partial_kpis, first_df)
+            except TypeError as e:
+                raise TypeError(f"Error in reduce function: {e}")
 
             dupl_df = dupl_df.union(segmented_df)
 
         return self._append_metadata(dupl_df, "duplicate_count")
+            #segmented_df = reduce(lambda df1, df2: df1.union(df2), partial_kpis)
+
+            #dupl_df = dupl_df.union(segmented_df)
+
+        #return self._append_metadata(dupl_df, "duplicate_count")
 
     # completeness
     def compute_completeness(self):
@@ -130,4 +146,4 @@ class QualityCheck:
             self.dates_check()
         ]
 
-        return reduce(lambda df1, df2: df1.union(df2), checks)
+        return reduce_function(lambda df1, df2: df1.union(df2), checks)
