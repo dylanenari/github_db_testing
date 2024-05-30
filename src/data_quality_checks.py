@@ -48,16 +48,21 @@ class QualityCheck:
 
         # count by date, total, add columns
         counts_df = self.df.groupBy(self.date_column).agg(count("*").alias("value")) \
-            .withColumn("key", lit(None))
+            .withColumn("key", lit(None)) \
+            .select(self.date_column, "key", "value")
+            
         segmented_df = None
 
         if self.segmentation_keys:
-            # counts by date, segmentation keys and date, total
-            exprs = [count(c).alias(f"{c}") for c in self.segmentation_keys]
-            segmented_df = self.df.groupBy(self.date_column).agg(*exprs)
 
-            # transpose and add columns
-            segmented_df = segmented_df.melt(self.date_column, self.segmentation_keys, "key", "value")
+            partial_kpis = (self.df.groupBy(self.date_column, c)
+                                            .agg(count(c).alias("value"))
+                                            .withColumnRenamed(c, "key")
+                                            .select(self.date_column, "key", "value")
+                                            for c in self.segmentation_keys
+                            )
+            
+            segmented_df = reduce_function(lambda df1, df2: df1.union(df2), partial_kpis)
 
             # Add segmented data to general data
             counts_df = counts_df.union(segmented_df)
@@ -71,7 +76,9 @@ class QualityCheck:
         working_df = self.df.groupBy(self.df.columns).count().filter("count > 1")
 
         dupl_df = working_df.groupBy(self.date_column).agg(sum("count").alias("value")) \
-            .withColumn("key", lit(None))
+            .withColumn("key", lit(None)) \
+            .select(self.date_column, "key", "value")
+
         segmented_df = None
 
         # ticketing specific
@@ -81,19 +88,11 @@ class QualityCheck:
             partial_kpis = (working_df.groupBy(self.date_column, c)
                             .agg(sum("count").alias("value"))
                             .withColumnRenamed(c, "key")
+                            .select(self.date_column, "key", "value")
                             for c in self.segmentation_keys)
-            
-            # ensure partial_kpis generates at least one DataFrame
-            try:
-                first_df = next(partial_kpis)
-            except StopIteration:
-                raise ValueError("No DataFrames generated from partial_kpis.")
 
             # use functools.reduce to combine the DataFrames
-            try:
-                segmented_df = reduce_function(lambda df1, df2: df1.union(df2), partial_kpis, first_df)
-            except TypeError as e:
-                raise TypeError(f"Error in reduce function: {e}")
+            segmented_df = reduce_function(lambda df1, df2: df1.union(df2), partial_kpis)
 
             dupl_df = dupl_df.union(segmented_df)
 
