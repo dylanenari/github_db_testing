@@ -97,11 +97,6 @@ class QualityCheck:
             dupl_df = dupl_df.union(segmented_df)
 
         return self._append_metadata(dupl_df, "duplicate_count")
-            #segmented_df = reduce(lambda df1, df2: df1.union(df2), partial_kpis)
-
-            #dupl_df = dupl_df.union(segmented_df)
-
-        #return self._append_metadata(dupl_df, "duplicate_count")
 
     # completeness
     def compute_completeness(self):
