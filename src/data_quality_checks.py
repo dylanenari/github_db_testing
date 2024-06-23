@@ -75,7 +75,7 @@ class QualityCheck:
         # Counting row repetition
         working_df = self.df.groupBy(self.df.columns).count().filter("count > 1")
 
-        dupl_df = working_df.groupBy(self.date_column).agg(sum("count").alias("value")) \
+        dupl_df = working_df.groupBy(self.date_column).agg(count("count").alias("value")) \
             .withColumn("key", lit(None)) \
             .select(self.date_column, "key", "value")
 
